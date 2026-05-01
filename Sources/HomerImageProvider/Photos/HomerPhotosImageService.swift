@@ -37,11 +37,26 @@ public final class HomerPhotosImageService: @unchecked Sendable {
     /// `resizeMode` is intentionally left at PhotoKit's default —
     /// `.fast` can cause low-quality versions to stick when the
     /// requested size isn't already cached.
+    ///
+    /// ## Why the empty `progressHandler`
+    /// CloudKit prioritises iCloud-photo download requests differently
+    /// based on whether anyone is observing progress. Without a
+    /// `progressHandler`, requests for iCloud-only assets are tagged
+    /// as background / opportunistic and queued behind interactive
+    /// traffic — even on fast connections, these requests frequently
+    /// time out with `CloudPhotoLibraryErrorDomain Code 81` chained to
+    /// `NSURLErrorDomain -1001`. Setting the handler — even with an
+    /// empty body — promotes the request to "interactive" priority
+    /// and dramatically reduces the timeout rate. The handler body
+    /// stays empty because progress is not currently surfaced upward;
+    /// a future revision can expose it through ``HomerImageDelivery``
+    /// if call sites want to render a progress bar.
     private let sharedOptions: PHImageRequestOptions = {
         let options = PHImageRequestOptions()
         options.deliveryMode = .opportunistic
         options.isNetworkAccessAllowed = true
         options.isSynchronous = false
+        options.progressHandler = { _, _, _, _ in }
         return options
     }()
 
