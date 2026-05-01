@@ -33,4 +33,13 @@ public enum HomerImageError: Error, Equatable {
     /// — the user sees the low-resolution thumbnail and the caller is
     /// notified that no upgrade is coming.
     case photosFinalQualityUnavailable
+
+    /// ``HomerImageProviderManager/originalData(for:)`` was called with a
+    /// ``HomerImageSource/photos(localIdentifier:)`` source. PhotoKit
+    /// assets do not have meaningful "raw bytes" in this API — pass
+    /// the identifier directly to the call site that needs it (for
+    /// example, ``HomerPhotosRepository/saveImage(with:)`` returns the
+    /// identifier as-is for `.photos` sources without re-encoding the
+    /// bytes through the library).
+    case photosBytesUnavailable
 }

@@ -58,22 +58,20 @@ public protocol HomerPhotosRepositoryProtocol: Sendable {
 }
 
 /// Default ``HomerPhotosRepositoryProtocol`` implementation backed by
-/// PhotoKit and ``ImageLoader``.
+/// PhotoKit and ``HomerImageProviderManager``.
 ///
 /// Operates as an `actor` so writes through `PHPhotoLibrary.performChanges`
 /// are serialised — concurrent saves would otherwise compete for the
 /// shared change-block transaction.
 public actor HomerPhotosRepository: HomerPhotosRepositoryProtocol {
 
-    private let imageLoader: ImageLoader
-
-    /// Creates a repository backed by the supplied loader.
-    /// - Parameter imageLoader: The loader used by ``saveImage(with:)``
-    ///   to fetch network sources before persisting them. Defaults to
-    ///   a fresh ``ImageLoader``.
-    public init(imageLoader: ImageLoader = ImageLoader()) {
-        self.imageLoader = imageLoader
-    }
+    /// Creates a repository. ``saveImage(with:)`` now delegates the
+    /// byte-fetch to ``HomerImageProviderManager/originalData(for:)``
+    /// so the manager's disk cache and in-flight dedupe are honoured
+    /// — passing a custom ``ImageLoader`` is no longer meaningful and
+    /// the parameter has been removed (`0.1.0` `init(imageLoader:)`
+    /// is gone).
+    public init() {}
 
     public func checkPermissionStatus() async -> PHAuthorizationStatus {
         return PHPhotoLibrary.authorizationStatus(for: .readWrite)
@@ -141,11 +139,14 @@ public actor HomerPhotosRepository: HomerPhotosRepositoryProtocol {
     @discardableResult
     public func saveImage(with source: HomerImageSource) async throws -> String? {
         switch source {
-        case .network(let url):
-            let data = try await imageLoader.download(from: url)
-            return try await saveImageData(data)
-        case .file(let url):
-            let data = try Data(contentsOf: url)
+        case .network, .file:
+            // Route through HomerImageProviderManager.originalData(for:)
+            // so disk cache + in-flight dedupe are consulted before
+            // the network. A detail screen that just displayed the
+            // image has already populated the disk cache; the save
+            // path now picks those bytes up instead of issuing a
+            // fresh URLSession hop that would fail when offline.
+            let data = try await HomerImageProviderManager.shared.originalData(for: source)
             return try await saveImageData(data)
         case .photos(let identifier):
             return identifier

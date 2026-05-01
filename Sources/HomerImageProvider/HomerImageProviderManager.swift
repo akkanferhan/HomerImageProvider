@@ -101,6 +101,46 @@ public actor HomerImageProviderManager {
         // Intentional no-op — see doc comment above.
     }
 
+    /// Returns the original (full-resolution) bytes for `source`,
+    /// honouring the same cache → in-flight dedupe → network-fetch
+    /// pipeline as ``loadImage(from:targetSize:)``.
+    ///
+    /// Use this when a caller needs the raw bytes (saving to the
+    /// Photos library, uploading, hashing) **after** a load has
+    /// already populated the cache. ``loadImage(from:targetSize:)``
+    /// decodes / downsamples for display and only the network branch
+    /// writes the encoded bytes to disk; a hand-rolled
+    /// `URLSession.data(from: url)` in a save handler therefore
+    /// bypasses the cache and re-hits the network even when the
+    /// detail screen displayed an already-cached image moments ago.
+    ///
+    /// - Parameter source: The image's origin.
+    ///   - ``HomerImageSource/network(_:)`` resolves through disk
+    ///     cache → in-flight dedupe → fresh download (with
+    ///     ``HomerConfigurationProtocol/retryPolicy`` honoured).
+    ///   - ``HomerImageSource/file(_:)`` reads bytes from the file
+    ///     system.
+    ///   - ``HomerImageSource/photos(localIdentifier:)`` throws
+    ///     ``HomerImageError/photosBytesUnavailable`` because
+    ///     PhotoKit assets do not have meaningful "raw bytes" in
+    ///     this API — keep the identifier and pass it through
+    ///     directly to the consuming call site.
+    /// - Returns: The full-resolution encoded bytes (JPEG / PNG /
+    ///   HEIC / …, depending on the source).
+    /// - Throws: ``HomerImageError/photosBytesUnavailable`` for
+    ///   `.photos` sources, or any error propagated from the disk
+    ///   read or network download.
+    public func originalData(for source: HomerImageSource) async throws -> Data {
+        switch source {
+        case .network(let url):
+            return try await fetchOriginalNetworkData(url: url, sourceKey: source.cacheKey)
+        case .file(let url):
+            return try Data(contentsOf: url)
+        case .photos:
+            throw HomerImageError.photosBytesUnavailable
+        }
+    }
+
     /// Loads an image, applying the full cache → dedupe → fetch →
     /// decode pipeline.
     ///
