@@ -6,6 +6,49 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-05-01
+
+### Fixed
+
+- **`HomerPhotosRepository.saveImage(with:)` now consults the cache
+  before downloading.** The `0.1.0` save path called
+  `imageLoader.download(from: url)` directly, which bypassed the disk
+  and memory caches populated by ``HomerImageProviderManager/loadImage(from:targetSize:)``.
+  Symptom: a detail screen would display an already-cached image
+  successfully, but tapping "Save to Photos" on the same screen
+  produced a network error when offline (or an unnecessary network
+  hop when online). The save now routes through the new
+  ``HomerImageProviderManager/originalData(for:)`` API so the same
+  cache → in-flight dedupe → network fallback pipeline is honoured.
+
+### Added
+
+- **``HomerImageProviderManager/originalData(for:)``** — public,
+  cache-first byte-fetch API. Resolves a ``HomerImageSource`` to its
+  full-resolution encoded bytes through disk cache → in-flight
+  dedupe → fresh download (with
+  ``HomerConfigurationProtocol/retryPolicy`` honoured for transient
+  HTTP failures). Use this anywhere a caller needs the raw bytes
+  *after* a load has populated the cache: saving to the Photos
+  library, uploading, hashing.
+- **``HomerImageError/photosBytesUnavailable``** — thrown by
+  ``originalData(for:)`` when called with a
+  ``HomerImageSource/photos(localIdentifier:)`` source. PhotoKit
+  assets do not have meaningful "raw bytes" in this API; pass the
+  identifier through directly to the consuming call site instead.
+
+### Changed
+
+- **BREAKING (init only)**: ``HomerPhotosRepository/init(imageLoader:)``
+  is removed. The repository now delegates byte-fetch to
+  ``HomerImageProviderManager/originalData(for:)`` so the loader
+  parameter is no longer meaningful — replace
+  `HomerPhotosRepository(imageLoader: ImageLoader(...))` with
+  `HomerPhotosRepository()`. To configure transport behaviour
+  (`URLSession`, retry policy), conform a custom
+  ``HomerConfigurationProtocol`` and pass it to
+  ``HomerImageProviderManager/configure(with:)`` once at app launch.
+
 ## [0.1.0] — 2026-05-01
 
 Initial public release. Modern Swift 6 / iOS 18 image-loading library
@@ -99,5 +142,6 @@ public surface.
   data task during fast scrolls produced `RST_STREAM` cascades and
   CloudFlare `429` chains.
 
-[Unreleased]: https://github.com/akkanferhan/HomerImageProvider/compare/0.1.0...HEAD
+[Unreleased]: https://github.com/akkanferhan/HomerImageProvider/compare/0.2.0...HEAD
+[0.2.0]: https://github.com/akkanferhan/HomerImageProvider/compare/0.1.0...0.2.0
 [0.1.0]: https://github.com/akkanferhan/HomerImageProvider/releases/tag/0.1.0
