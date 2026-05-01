@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-05-01
+
+### Fixed
+
+- **iCloud-only assets no longer time out under
+  `CloudPhotoLibraryErrorDomain Code 81`** (chained to
+  `NSURLErrorDomain -1001`). The shared `PHImageRequestOptions` now
+  installs an empty `progressHandler` block, which CloudKit reads as
+  "this request is being actively observed" and promotes from the
+  background / opportunistic queue to the interactive queue. Symptom
+  previously seen on fast networks: ``HomerImageDelivery/degradedOnlyFinalFailed(degraded:error:)``
+  fires repeatedly while the device is online but PhotoKit reports
+  the underlying CloudKit transfer timed out. The handler body is
+  intentionally empty — its presence is the priority signal;
+  surfacing progress upward through ``HomerImageDelivery`` is
+  reserved for a future revision so call sites can opt in to a
+  progress bar.
+
 ## [0.2.0] — 2026-05-01
 
 ### Fixed
@@ -142,6 +160,7 @@ public surface.
   data task during fast scrolls produced `RST_STREAM` cascades and
   CloudFlare `429` chains.
 
-[Unreleased]: https://github.com/akkanferhan/HomerImageProvider/compare/0.2.0...HEAD
+[Unreleased]: https://github.com/akkanferhan/HomerImageProvider/compare/0.3.0...HEAD
+[0.3.0]: https://github.com/akkanferhan/HomerImageProvider/compare/0.2.0...0.3.0
 [0.2.0]: https://github.com/akkanferhan/HomerImageProvider/compare/0.1.0...0.2.0
 [0.1.0]: https://github.com/akkanferhan/HomerImageProvider/releases/tag/0.1.0

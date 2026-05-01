@@ -5,7 +5,7 @@ Modern Swift 6 / iOS 18 image-loading library for the Homer suite. Async / await
 - **Swift tools:** 6.0 (`swiftLanguageModes: [.v6]`, strict concurrency)
 - **Platforms:** iOS 18+
 - **Dependencies:** `HomerFoundation` `0.5.0+`, `HomerUIKit` `0.8.0+`
-- **Status:** `0.2.0` — public API documented with DocC, 0 warnings
+- **Status:** `0.3.0` — public API documented with DocC, 0 warnings
 
 ## Installation
 
@@ -13,7 +13,7 @@ Swift Package Manager — add to your `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/akkanferhan/HomerImageProvider.git", from: "0.2.0")
+    .package(url: "https://github.com/akkanferhan/HomerImageProvider.git", from: "0.3.0")
 ]
 ```
 
