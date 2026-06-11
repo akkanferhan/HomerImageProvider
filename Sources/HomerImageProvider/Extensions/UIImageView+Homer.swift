@@ -41,6 +41,7 @@ nonisolated(unsafe) private var photosRequestKey: UInt8 = 0
 nonisolated(unsafe) private var photosRequestKindKey: UInt8 = 0
 nonisolated(unsafe) private var loadSourceKey: UInt8 = 0
 nonisolated(unsafe) private var loadTargetSizeKey: UInt8 = 0
+nonisolated(unsafe) private var loadGenerationKey: UInt8 = 0
 
 private enum PhotosRequestKind: Int {
     case thumbnail
@@ -106,6 +107,22 @@ extension HomerWrapper where Base: UIImageView {
         nonmutating set {
             let value = newValue.map { NSValue(cgSize: $0) }
             objc_setAssociatedObject(base, &loadTargetSizeKey, value, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        }
+    }
+
+    /// Monotonic token identifying the image view's most recent
+    /// `setImage` / `cancelDownload` cycle. PhotoKit cancellation is
+    /// asynchronous — a callback already in flight when
+    /// ``cancelDownload()`` runs can still land afterwards, assigning a
+    /// stale image to a reused cell. Each PhotoKit request captures the
+    /// generation it was issued under and drops its delivery when the
+    /// view has since moved on.
+    private var loadGeneration: Int {
+        get {
+            (objc_getAssociatedObject(base, &loadGenerationKey) as? NSNumber)?.intValue ?? 0
+        }
+        nonmutating set {
+            objc_setAssociatedObject(base, &loadGenerationKey, NSNumber(value: newValue), .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
         }
     }
 
@@ -213,6 +230,9 @@ extension HomerWrapper where Base: UIImageView {
     /// request.
     @MainActor
     public func cancelDownload() {
+        // Invalidate any in-flight PhotoKit callbacks before the
+        // request IDs are cleared — see ``loadGeneration``.
+        loadGeneration += 1
         currentTask?.cancel()
         currentTask = nil
 
@@ -249,6 +269,7 @@ extension HomerWrapper where Base: UIImageView {
     ) {
         currentPhotosRequestKind = .thumbnail
         let state = PhotosDeliveryState()
+        let generation = loadGeneration
         currentPhotosRequestID = HomerPhotosImageService.shared.requestImage(
             for: localIdentifier,
             targetSize: targetSize
@@ -263,6 +284,9 @@ extension HomerWrapper where Base: UIImageView {
             // was issued from it.
             MainActor.assumeIsolated {
                 guard let base else { return }
+                // Stale callback from a request the view has since
+                // cancelled or replaced (cell reuse) — drop it.
+                guard base.homer.loadGeneration == generation else { return }
                 Self.dispatchPhotosDelivery(
                     image: image,
                     isDegraded: isDegraded,
@@ -283,12 +307,16 @@ extension HomerWrapper where Base: UIImageView {
         let size = Self.fullScreenPhotosTargetSize
         currentPhotosRequestKind = .fullScreen
         let state = PhotosDeliveryState()
+        let generation = loadGeneration
         currentPhotosRequestID = HomerPhotosImageService.shared.requestFullScreenImage(
             for: localIdentifier,
             targetSize: size
         ) { [weak base = self.base] image, isDegraded, error in
             MainActor.assumeIsolated {
                 guard let base else { return }
+                // Stale callback from a request the view has since
+                // cancelled or replaced (cell reuse) — drop it.
+                guard base.homer.loadGeneration == generation else { return }
                 Self.dispatchPhotosDelivery(
                     image: image,
                     isDegraded: isDegraded,

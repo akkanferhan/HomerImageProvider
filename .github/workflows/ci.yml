@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  test:
+    name: Build & Test
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show versions
+        run: |
+          swift --version
+          xcodebuild -version
+
+      - name: Pick iPhone simulator
+        id: sim
+        run: |
+          set -euo pipefail
+          SIM_LINE=$(xcrun simctl list devices available \
+            | grep -E '^\s+iPhone' \
+            | head -1)
+          if [ -z "$SIM_LINE" ]; then
+            echo "::error::No iPhone simulator runtime is installed on this runner."
+            xcrun simctl list devices available
+            exit 1
+          fi
+          SIM_ID=$(echo "$SIM_LINE" | sed -E 's/.*\(([-A-F0-9]+)\).*/\1/')
+          SIM_NAME=$(echo "$SIM_LINE" | sed -E 's/^\s+(.*) \(.*$/\1/')
+          echo "Selected: $SIM_NAME ($SIM_ID)"
+          echo "id=$SIM_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        run: xcodebuild build -scheme HomerImageProvider -destination 'generic/platform=iOS Simulator'
+
+      - name: Test
+        run: xcodebuild test -scheme HomerImageProvider -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.id }}"
