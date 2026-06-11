@@ -23,6 +23,10 @@ let package = Package(
                 .product(name: "HomerFoundation", package: "HomerFoundation"),
                 .product(name: "HomerUIKit", package: "HomerUIKit")
             ]
+        ),
+        .testTarget(
+            name: "HomerImageProviderTests",
+            dependencies: ["HomerImageProvider"]
         )
     ],
     swiftLanguageModes: [.v6]

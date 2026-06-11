@@ -27,6 +27,14 @@ public actor TaskQueue {
         self.maxConcurrentTasks = maxConcurrentTasks
     }
 
+    /// Number of operations currently holding a worker slot. Internal
+    /// so tests can deterministically observe saturation and drain.
+    var runningCount: Int { runningTasks }
+
+    /// Number of suspended callers waiting for a slot. Internal so
+    /// tests can synchronise on "waiter parked" before resuming.
+    var waitingCount: Int { waitingTasks.count }
+
     /// Reserves a worker slot. If a slot is immediately available the
     /// call returns synchronously; otherwise it suspends until
     /// ``dequeue()`` resumes it (which can happen after an arbitrary

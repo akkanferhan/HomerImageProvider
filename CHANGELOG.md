@@ -6,6 +6,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- **Stale PhotoKit deliveries no longer land on reused cells.** PhotoKit
+  cancellation is asynchronous, so a result handler already in flight
+  when ``cancelDownload()`` ran could still fire afterwards — assigning
+  the *previous* source's image (and delivery events) to an image view
+  that had since been re-bound by cell reuse. Symptom: brief wrong-photo
+  flashes in grids during fast scrolling. Each request now captures a
+  per-view load generation and drops its delivery when the view has
+  moved on.
+
+### Added
+
+- **Test target** (`HomerImageProviderTests`) covering the pure logic
+  units: `TaskQueue` (concurrency cap, LIFO resume order, cancellation
+  slot release), `MemoryCache` (set/get/remove/overwrite semantics), and
+  `HomerImageSource.cacheKey` (stability and collision resistance).
+  `TaskQueue` gained internal `runningCount` / `waitingCount` hooks so
+  the suite can synchronise deterministically instead of sleeping.
+- **CI workflow** — GitHub Actions build + test on an iOS simulator,
+  mirroring the HomerUIKit pipeline.
+
 ## [0.3.0] — 2026-05-01
 
 ### Fixed
